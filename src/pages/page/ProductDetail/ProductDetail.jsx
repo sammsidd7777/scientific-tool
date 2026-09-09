@@ -1,392 +1,750 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { Heart, ShoppingCart, Truck, ShieldCheck, RotateCcw, Star, TrendingUp } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import {
+  Heart,
+  ShoppingCart,
+  Truck,
+  ShieldCheck,
+  RotateCcw,
+  Star,
+  PackageCheck,
+  ArrowLeft,
+  CheckCircle2,
+} from "lucide-react";
+import toast from "react-hot-toast";
 
-import { handleAddToCart, handleAddToWish } from "./helperCart";
 import Button from "../../../components/ui/Button";
-import RatingStars from "../../../components/ui/RatingStars";
 import ProductCard from "../../../components/ui/ProductCard";
 import { Skeleton } from "../../../components/ui/Skeleton";
-import SectionHeading from "../../../components/ui/SectionHeading";
-import { productImg } from "../../../lib/api";
 
-const perks = [
-  { icon: Truck, label: "Free Shipping", sub: "On all orders over ₹2,000" },
-  { icon: RotateCcw, label: "Easy Returns", sub: "30-day return window" },
-  { icon: ShieldCheck, label: "Authentic Guarantee", sub: "100% genuine products" },
-];
-
-const ProductDetailSkeleton = () => (
-  <div className="container-page py-12">
-    <Skeleton className="h-4 w-40 mb-8" />
-    <div className="grid lg:grid-cols-2 gap-12">
-      <div className="flex gap-4">
-        <div className="flex flex-col gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="w-16 h-16" />
-          ))}
-        </div>
-        <Skeleton className="flex-1 aspect-square" />
-      </div>
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-3/4" />
-        <Skeleton className="h-6 w-1/4" />
-        <Skeleton className="h-4 w-1/3" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-12 w-1/2" />
-      </div>
-    </div>
-  </div>
-);
+import staticProducts from "../../../data/products";
 
 const ProductDetail = () => {
+  const { id } = useParams();
+
   const [detail, setDetail] = useState(null);
-  const [product, setProduct] = useState([]);
+  const [similar, setSimilar] = useState([]);
   const [mainImg, setMainImg] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const { id } = useParams();
-
-  const stageRef = useRef(null);
-
-  // Parallax tilt on the shoe stage, following the cursor
-  const rawX = useMotionValue(0);
-  const rawY = useMotionValue(0);
-  const springX = useSpring(rawX, { stiffness: 120, damping: 18 });
-  const springY = useSpring(rawY, { stiffness: 120, damping: 18 });
-  const rotateX = useTransform(springY, [-0.5, 0.5], [10, -10]);
-  const rotateY = useTransform(springX, [-0.5, 0.5], [-12, 12]);
-  const shoeShiftX = useTransform(springX, [-0.5, 0.5], [-14, 14]);
-  const shoeShiftY = useTransform(springY, [-0.5, 0.5], [-10, 10]);
-
-  const handlePointerMove = (e) => {
-    const rect = stageRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    rawX.set((e.clientX - rect.left) / rect.width - 0.5);
-    rawY.set((e.clientY - rect.top) / rect.height - 0.5);
-  };
-
-  const handlePointerLeave = () => {
-    rawX.set(0);
-    rawY.set(0);
-  };
-
-
+  // =========================
+  // FETCH PRODUCT
+  // =========================
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${import.meta.env.VITE_BACK_URL}/products/detail/${id}`);
+
+        // First check static products
+        const staticProduct = staticProducts.find(
+          (product) =>
+            String(product._id || product.id) === String(id)
+        );
+
+        // If static product exists
+        if (staticProduct) {
+          setDetail(staticProduct);
+
+          setMainImg(
+            staticProduct.productImg?.[0] || ""
+          );
+
+          const relatedProducts = staticProducts
+            .filter(
+              (product) =>
+                product.productCategory ===
+                  staticProduct.productCategory &&
+                String(product._id || product.id) !== String(id)
+            )
+            .slice(0, 4);
+
+          setSimilar(relatedProducts);
+
+          return;
+        }
+
+        // =========================
+        // BACKEND FALLBACK
+        // =========================
+        const res = await fetch(
+          `${import.meta.env.VITE_BACK_URL}/products/detail/${id}`
+        );
+
+        if (!res.ok) {
+          throw new Error("Product not found");
+        }
+
         const data = await res.json();
 
-        const d = data.message.datas.product_detail;
+        const backendProduct =
+          data?.message?.datas?.product_detail;
 
-        setDetail(d);
-        setProduct(data.message.datas.product);
-        setMainImg(productImg(d.productImg[0]));
-      } catch (err) {
-        console.log(err);
+        if (!backendProduct) {
+          throw new Error("Product not found");
+        }
+
+        setDetail(backendProduct);
+
+        setSimilar(
+          data?.message?.datas?.product || []
+        );
+
+        setMainImg(
+          backendProduct.productImg?.[0] || ""
+        );
+      } catch (error) {
+        console.error("Product detail error:", error);
+
+        setDetail(null);
+
+        toast.error("Could not load product");
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }, [id]);
 
-  if (loading) return <ProductDetailSkeleton />;
-  if (!detail) return null;
+  // =========================
+  // ADD TO CART
+  // =========================
+  const addCart = async (productId = id) => {
+    try {
+      const isStaticProduct = staticProducts.some(
+        (product) =>
+          String(product._id || product.id) ===
+          String(productId)
+      );
+
+      // Static frontend testing
+      if (isStaticProduct) {
+        toast.success("Added to cart");
+        return;
+      }
+
+      const res = await fetch(
+        `${import.meta.env.VITE_BACK_URL}/cart/add/${productId}`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(
+          "Please login to add products"
+        );
+      }
+
+      toast.success("Added to cart");
+    } catch (error) {
+      toast.error(
+        error.message || "Could not add to cart"
+      );
+    }
+  };
+
+  // =========================
+  // ADD TO WISHLIST
+  // =========================
+  const addWish = async (productId = id) => {
+    try {
+      const isStaticProduct = staticProducts.some(
+        (product) =>
+          String(product._id || product.id) ===
+          String(productId)
+      );
+
+      // Static frontend testing
+      if (isStaticProduct) {
+        toast.success("Added to wishlist");
+        return;
+      }
+
+      const res = await fetch(
+        `${import.meta.env.VITE_BACK_URL}/wish/add/${productId}`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(
+          "Please login to add wishlist"
+        );
+      }
+
+      toast.success("Added to wishlist");
+    } catch (error) {
+      toast.error(
+        error.message || "Please login first"
+      );
+    }
+  };
+
+  // =========================
+  // LOADING
+  // =========================
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-ink-950">
+        <div className="container-page py-16">
+          <Skeleton className="h-4 w-40 mb-8" />
+
+          <div className="grid lg:grid-cols-2 gap-12">
+            <Skeleton className="aspect-square rounded-3xl" />
+
+            <div className="space-y-5">
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-10 w-3/4" />
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-14 w-1/2" />
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // =========================
+  // NOT FOUND
+  // =========================
+  if (!detail) {
+    return (
+      <main className="min-h-screen bg-ink-950 flex items-center justify-center">
+        <div className="container-page py-24 text-center">
+          <PackageCheck className="w-14 h-14 text-ink-600 mx-auto mb-5" />
+
+          <h1 className="text-2xl font-black text-white">
+            Product not found
+          </h1>
+
+          <p className="text-ink-500 mt-2">
+            The product you're looking for is unavailable.
+          </p>
+
+          <Link
+            to="/shop"
+            className="
+              inline-flex
+              items-center
+              gap-2
+              mt-7
+              px-5
+              h-11
+              rounded-full
+              bg-gold-400
+              text-ink-950
+              text-sm
+              font-bold
+            "
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Shop
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  // =========================
+  // PRICE
+  // =========================
+  const originalPrice = Number(
+    detail.productPrice || 0
+  );
+
+  const discountPrice = Number(
+    detail.discountPrice || 0
+  );
+
+  const hasDiscount =
+    discountPrice > 0 &&
+    discountPrice < originalPrice;
+
+  const price = hasDiscount
+    ? discountPrice
+    : originalPrice;
+
+  const discount = hasDiscount
+    ? Math.round(
+        ((originalPrice - discountPrice) /
+          originalPrice) *
+          100
+      )
+    : 0;
+
+  // =========================
+  // STOCK
+  // =========================
+  const stock = Number(detail.stock || 0);
+  const isInStock = stock > 0;
+
+  // =========================
+  // RELATED PRODUCTS
+  // =========================
+  const relatedProducts =
+    similar.length > 0
+      ? similar.slice(0, 4)
+      : staticProducts
+          .filter(
+            (product) =>
+              product.productCategory ===
+                detail.productCategory &&
+              String(product._id || product.id) !==
+                String(detail._id || detail.id)
+          )
+          .slice(0, 4);
 
   return (
-    <div className="min-h-screen bg-ink-950">
+    <main className="min-h-screen bg-ink-950">
       <div className="container-page py-8 sm:py-12">
-        {/* BREADCRUMB */}
-        <div className="text-xs text-ink-400 mb-8 flex items-center gap-2">
-          <span className="uppercase tracking-widest2 text-gold-400 font-bold">
-            {detail.productBrand}
+
+        {/* ================= BREADCRUMB ================= */}
+        <div className="text-xs text-ink-500 mb-8 flex flex-wrap items-center">
+          <Link
+            to="/shop"
+            className="hover:text-white transition-colors"
+          >
+            Products
+          </Link>
+
+          <span className="mx-2">/</span>
+
+          <Link
+            to={`/shop?category=${encodeURIComponent(
+              detail.productCategory
+            )}`}
+            className="text-gold-400 hover:text-gold-300"
+          >
+            {detail.productCategory}
+          </Link>
+
+          <span className="mx-2">/</span>
+
+          <span className="text-ink-400 line-clamp-1">
+            {detail.productName}
           </span>
-          <span>/</span>
-          <span>{detail.productName}</span>
         </div>
 
+        {/* ================= PRODUCT ================= */}
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
-          {/* IMAGES */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="flex flex-col-reverse sm:flex-row gap-4"
-          >
-            <div className="flex sm:flex-col gap-3 overflow-x-auto sm:overflow-visible">
-              {detail.productImg.map((img, i) => {
-                const src = productImg(img);
-                const active = mainImg === src;
-                return (
-                  <button
-                    key={i}
-                    onClick={() => setMainImg(src)}
-                    className={`shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 transition-colors ${active ? "border-gold-400" : "border-white/10 hover:border-white/30"
-                      }`}
-                  >
-                    <img src={src} alt="" className="w-full h-full object-cover" />
-                  </button>
-                );
-              })}
-            </div>
 
-            <div className="relative flex-1 rounded-3xl ">
-              <AnimatePresence mode="wait">
-                {/* <motion.img
-                  key={mainImg}
-                  initial={{ opacity: 0, scale: 1.03 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
+          {/* ================= IMAGE ================= */}
+          <div>
+            <div
+              className="
+                relative
+                rounded-3xl
+                border border-white/10
+                bg-ink-900/60
+                aspect-square
+                flex
+                items-center
+                justify-center
+                overflow-hidden
+              "
+            >
+              <div
+                className="
+                  absolute
+                  w-72
+                  h-72
+                  rounded-full
+                  bg-gold-500/10
+                  blur-3xl
+                "
+              />
+
+              {mainImg ? (
+                <img
                   src={mainImg}
                   alt={detail.productName}
-                  className="w-full h-full object-contain p-8"
-                /> */}
+                  className="
+                    relative
+                    w-full
+                    h-full
+                    object-contain
+                    p-8
+                    sm:p-12
+                  "
+                />
+              ) : (
+                <PackageCheck className="w-20 h-20 text-ink-600" />
+              )}
 
-                <motion.div
-                  ref={stageRef}
-                  onPointerMove={handlePointerMove}
-                  onPointerLeave={handlePointerLeave}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.8, ease: "easeOut", delay: 0.15 }}
-                  style={{ perspective: 1000 }}
-                  className="relative z-10 flex justify-center"
+              {/* SALE */}
+              {hasDiscount && (
+                <span
+                  className="
+                    absolute
+                    top-5
+                    left-5
+                    rounded-full
+                    bg-gold-400
+                    px-3
+                    py-1.5
+                    text-xs
+                    font-black
+                    text-ink-950
+                  "
                 >
-                  <motion.div
-                    style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-                    className="relative w-full max-w-md aspect-square"
-                  >
-                    {/* Rotating dashed ring */}
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-                      className="absolute inset-0 rounded-full border border-dashed border-gold-400/25"
-                    />
-                    <motion.div
-                      animate={{ rotate: -360 }}
-                      transition={{ duration: 55, repeat: Infinity, ease: "linear" }}
-                      className="absolute inset-8 rounded-full border border-white/10"
-                    />
+                  {discount}% OFF
+                </span>
+              )}
 
-                    <div className="absolute inset-6 rounded-full bg-gradient-to-br from-gold-500/25 via-gold-400/10 to-transparent blur-2xl" />
-
-                    {/* Secondary shoe, back layer */}
-                    <motion.img
-                      initial={{ opacity: 0, x: 30, rotate: 8 }}
-                      animate={{ opacity: 0.5, x: 0, rotate: 18, y: [0, 12, 0] }}
-                      transition={{
-                        opacity: { duration: 0.8, delay: 0.3 },
-                        x: { duration: 0.8, delay: 0.3 },
-                        y: { duration: 7, repeat: Infinity, ease: "easeInOut" },
-                      }}
-                      src={mainImg}
-                      alt=""
-                      className="absolute -right-6 bottom-2 w-1/2 object-contain drop-shadow-2xl blur-[1px] saturate-50"
-                    />
-
-                    {/* Main shoe — follows cursor slightly, floats, tilts */}
-                    <motion.img
-                      style={{ x: shoeShiftX, y: shoeShiftY }}
-                      animate={{ y: [0, -18, 0], rotate: [-3, 3, -3] }}
-                      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                      src={mainImg}
-                      alt="Featured sneaker"
-                      className="relative w-full h-full object-contain drop-shadow-[0_40px_60px_rgba(0,0,0,0.65)]"
-                    />
-
-                    {/* Floating glass card — rating */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: [0, -8, 0] }}
-                      transition={{
-                        opacity: { duration: 0.6, delay: 0.6 },
-                        y: { duration: 4.5, repeat: Infinity, ease: "easeInOut" },
-                      }}
-                      className="absolute top-4 left-0 sm:-left-4 glass rounded-2xl px-4 py-3 shadow-card flex items-center gap-2.5"
-                    >
-                      <div className="w-9 h-9 rounded-full bg-gold-400/20 flex items-center justify-center">
-                        <Star className="w-4 h-4 fill-gold-400 text-gold-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-white leading-none">4.9/5</p>
-                        <p className="text-[11px] text-ink-400 mt-1">2,300+ reviews</p>
-                      </div>
-                    </motion.div>
-
-                    {/* Floating glass card — trending */}
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: [0, 10, 0] }}
-                      transition={{
-                        opacity: { duration: 0.6, delay: 0.8 },
-                        y: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 },
-                      }}
-                      className="absolute bottom-8 right-0 sm:-right-6 glass rounded-2xl px-4 py-3 shadow-card flex items-center gap-2.5"
-                    >
-                      <div className="w-9 h-9 rounded-full bg-emerald-400/15 flex items-center justify-center">
-                        <TrendingUp className="w-4 h-4 text-emerald-400" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-white leading-none">Trending</p>
-                        <p className="text-[11px] text-ink-400 mt-1">#1 in Sneakers</p>
-                      </div>
-                    </motion.div>
-
-                    {/* Discount badge */}
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.6, rotate: -12 }}
-                      animate={{ opacity: 1, scale: 1, rotate: [-12, -6, -12] }}
-                      transition={{
-                        opacity: { duration: 0.6, delay: 0.5 },
-                        scale: { duration: 0.6, delay: 0.5, type: "spring" },
-                        rotate: { duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 },
-                      }}
-                      className="absolute top-2 right-2 sm:right-6 w-16 h-16 rounded-full bg-gold-400 flex flex-col items-center justify-center shadow-glow"
-                    >
-                      <span className="text-ink-950 font-black text-sm leading-none">50%</span>
-                      <span className="text-ink-950 font-bold text-[9px] uppercase tracking-wide">off</span>
-                    </motion.div>
-
-                    {/* Authenticity chip */}
-                    <motion.div
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.6, delay: 0.9 }}
-                      className="absolute -bottom-2 left-4 sm:left-8 inline-flex items-center gap-1.5 glass rounded-full px-3 py-1.5"
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5 text-gold-400" />
-                      <span className="text-[11px] font-semibold text-white">100% Authentic</span>
-                    </motion.div>
-                  </motion.div>
-
-                  {/* Cursor hint, desktop only, fades once user moves */}
-                  <motion.div
-                    initial={{ opacity: 0.6 }}
-                    whileHover={{ opacity: 0 }}
-                    className="hidden lg:flex absolute bottom-0 right-0 items-center gap-1.5 text-[11px] text-ink-500 pointer-events-none"
-                  >
-
-                  </motion.div>
-                </motion.div>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-              </AnimatePresence>
+              {/* FEATURED */}
+              {detail.featured === true && (
+                <span
+                  className="
+                    absolute
+                    top-5
+                    right-5
+                    rounded-full
+                    border
+                    border-white/10
+                    bg-ink-950/80
+                    backdrop-blur
+                    px-3
+                    py-1.5
+                    text-xs
+                    font-bold
+                    text-white
+                  "
+                >
+                  Featured
+                </span>
+              )}
             </div>
-          </motion.div>
 
-          {/* INFO */}
+            {/* ================= THUMBNAILS ================= */}
+            {detail.productImg?.length > 1 && (
+              <div className="flex gap-3 mt-4 overflow-x-auto pb-1">
+                {detail.productImg.map((img, index) => (
+                  <button
+                    key={`${img}-${index}`}
+                    type="button"
+                    onClick={() => setMainImg(img)}
+                    className={`
+                      w-20
+                      h-20
+                      shrink-0
+                      rounded-xl
+                      overflow-hidden
+                      border-2
+                      bg-ink-900
+                      transition-all
+                      ${
+                        mainImg === img
+                          ? "border-gold-400"
+                          : "border-white/10 hover:border-white/30"
+                      }
+                    `}
+                  >
+                    <img
+                      src={img}
+                      alt={`${detail.productName} ${index + 1}`}
+                      className="
+                        w-full
+                        h-full
+                        object-contain
+                        p-2
+                      "
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ================= PRODUCT INFO ================= */}
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            initial={{
+              opacity: 0,
+              x: 20,
+            }}
+            animate={{
+              opacity: 1,
+              x: 0,
+            }}
+            transition={{
+              duration: 0.45,
+            }}
           >
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tightest text-white leading-tight">
+            {/* CATEGORY */}
+            <span
+              className="
+                text-xs
+                font-bold
+                uppercase
+                tracking-widest2
+                text-gold-400
+              "
+            >
+              {detail.productCategory}
+            </span>
+
+            {/* NAME */}
+            <h1
+              className="
+                text-3xl
+                sm:text-4xl
+                font-black
+                text-white
+                tracking-tightest
+                mt-3
+              "
+            >
               {detail.productName}
             </h1>
 
-            <div className="flex items-center gap-3 mt-4">
-              <RatingStars rating={4.8} showValue />
-              <span className="text-ink-500 text-sm">•</span>
-              <span className="text-sm text-ink-400">128 reviews</span>
+            {/* RATING */}
+            <div className="flex items-center gap-2 mt-4">
+              <Star className="w-4 h-4 text-gold-400 fill-gold-400" />
+
+              <span className="text-sm text-white font-semibold">
+                {Number(detail.rating || 0).toFixed(1)}
+              </span>
+
+              <span className="text-sm text-ink-500">
+                ({detail.totalReviews || 0} reviews)
+              </span>
             </div>
 
-            <p className="text-3xl font-bold text-white mt-6">
-              ₹{detail.productPrice?.toLocaleString?.("en-IN") ?? detail.productPrice}
+            {/* PRICE */}
+            <div className="flex items-end gap-3 mt-7 flex-wrap">
+              <span className="text-3xl font-black text-white">
+                ₹{Number(price).toLocaleString("en-IN")}
+              </span>
+
+              {hasDiscount && (
+                <>
+                  <span className="text-base text-ink-500 line-through mb-1">
+                    ₹
+                    {Number(
+                      detail.productPrice
+                    ).toLocaleString("en-IN")}
+                  </span>
+
+                  <span className="text-sm font-bold text-emerald-400 mb-1">
+                    Save ₹
+                    {(
+                      originalPrice -
+                      discountPrice
+                    ).toLocaleString("en-IN")}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* DESCRIPTION */}
+            <p className="text-ink-300 leading-relaxed mt-6">
+              {detail.productDescription ||
+                "Reliable scientific equipment designed for laboratory and research applications."}
             </p>
 
-            <p className="text-ink-300 leading-relaxed mt-6 max-w-lg">
-              {detail.productDescription}
-            </p>
+            {/* STOCK */}
+            <div
+              className={`
+                mt-5
+                inline-flex
+                items-center
+                gap-2
+                rounded-full
+                px-3
+                py-1.5
+                text-xs
+                font-semibold
+                ${
+                  isInStock
+                    ? "bg-emerald-400/10 text-emerald-300"
+                    : "bg-red-400/10 text-red-300"
+                }
+              `}
+            >
+              <span className="w-2 h-2 rounded-full bg-current" />
 
+              {isInStock
+                ? `${stock} units available`
+                : "Currently out of stock"}
+            </div>
+
+            {/* ACTION BUTTONS */}
             <div className="flex items-center gap-3 mt-8">
               <Button
                 variant="gold"
                 size="lg"
                 icon={ShoppingCart}
-                onClick={() => handleAddToCart(detail._id)}
+                disabled={!isInStock}
+                onClick={() =>
+                  addCart(detail._id || detail.id)
+                }
                 className="flex-1 sm:flex-none sm:px-12"
               >
-                Add to Cart
+                {isInStock
+                  ? "Add to Cart"
+                  : "Out of Stock"}
               </Button>
 
               <button
-                onClick={() => handleAddToWish(detail._id)}
+                type="button"
+                onClick={() =>
+                  addWish(detail._id || detail.id)
+                }
                 aria-label="Add to wishlist"
-                className="w-14 h-14 rounded-full border border-white/15 flex items-center justify-center text-white hover:text-gold-300 hover:border-gold-400/40 transition-colors"
+                className="
+                  w-14
+                  h-14
+                  rounded-xl
+                  border
+                  border-white/10
+                  flex
+                  items-center
+                  justify-center
+                  text-white
+                  hover:text-gold-300
+                  hover:border-gold-400/40
+                  transition-all
+                "
               >
                 <Heart className="w-5 h-5" />
               </button>
             </div>
 
-            {/* PERKS */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-10 pt-8 border-t border-white/10">
-              {perks.map((perk) => (
-                <div key={perk.label} className="flex items-start gap-3">
-                  <perk.icon className="w-5 h-5 text-gold-400 shrink-0 mt-0.5" />
+            {/* ================= BENEFITS ================= */}
+            <div
+              className="
+                grid
+                grid-cols-1
+                sm:grid-cols-3
+                gap-4
+                mt-10
+                pt-8
+                border-t
+                border-white/10
+              "
+            >
+              {[
+                [
+                  Truck,
+                  "Safe delivery",
+                  "Careful laboratory packing",
+                ],
+                [
+                  ShieldCheck,
+                  "Quality focus",
+                  "Reliable scientific products",
+                ],
+                [
+                  RotateCcw,
+                  "Support",
+                  "Help when you need it",
+                ],
+              ].map(([Icon, label, sub]) => (
+                <div
+                  key={label}
+                  className="flex items-start gap-3"
+                >
+                  <Icon className="w-5 h-5 text-gold-400 shrink-0" />
+
                   <div>
-                    <p className="text-sm font-semibold text-white">{perk.label}</p>
-                    <p className="text-xs text-ink-400 mt-0.5">{perk.sub}</p>
+                    <p className="text-sm font-semibold text-white">
+                      {label}
+                    </p>
+
+                    <p className="text-xs text-ink-500 mt-0.5">
+                      {sub}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* PRODUCT STATUS */}
+            <div className="mt-8 space-y-3">
+              {detail.featured === true && (
+                <div className="flex items-center gap-2 text-sm text-ink-300">
+                  <CheckCircle2 className="w-4 h-4 text-gold-400" />
+                  Featured laboratory product
+                </div>
+              )}
+
+              {hasDiscount && (
+                <div className="flex items-center gap-2 text-sm text-ink-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  Special price available
+                </div>
+              )}
+            </div>
           </motion.div>
         </div>
 
-        {/* SIMILAR */}
-        {product.length > 0 && (
-          <div className="mt-20 sm:mt-28">
-            <SectionHeading
-              align="left"
-              eyebrow="You May Also Like"
-              title="Similar Products"
-              className="mx-0"
-            />
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {product.map((item, i) => (
+        {/* ================= RELATED PRODUCTS ================= */}
+        {relatedProducts.length > 0 && (
+          <section className="mt-20 sm:mt-28">
+            <div className="mb-8">
+              <span
+                className="
+                  text-xs
+                  font-bold
+                  uppercase
+                  tracking-widest2
+                  text-gold-400
+                "
+              >
+                More from this category
+              </span>
+
+              <h2 className="text-2xl sm:text-3xl font-black text-white mt-2">
+                Related Products
+              </h2>
+
+              <p className="text-sm text-ink-500 mt-2">
+                More laboratory products you may find useful.
+              </p>
+            </div>
+
+            <div
+              className="
+                grid
+                grid-cols-2
+                sm:grid-cols-3
+                lg:grid-cols-4
+                gap-4
+                md:gap-6
+              "
+            >
+              {relatedProducts.map((item, index) => (
                 <ProductCard
-                  key={item._id}
+                  key={
+                    item._id ||
+                    item.id ||
+                    `related-${index}`
+                  }
                   item={item}
-                  index={i}
-                  onAddToWish={handleAddToWish}
-                  onAddToCart={handleAddToCart}
+                  index={index}
+                  onAddToWish={() =>
+                    addWish(item._id || item.id)
+                  }
+                  onAddToCart={() =>
+                    addCart(item._id || item.id)
+                  }
                 />
               ))}
             </div>
-          </div>
+          </section>
         )}
       </div>
-    </div>
+    </main>
   );
 };
 
