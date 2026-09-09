@@ -1,11 +1,18 @@
 import React, { useEffect, useState } from "react";
+import {
+  FlaskConical,
+  Microscope,
+  Atom,
+  CheckCircle2,
+} from "lucide-react";
 
-export default function MalkhaniLoading() {
-  const [phase, setPhase] = useState("draw"); // draw -> reveal -> ready
+export default function SciSupplyLoading() {
+  const [phase, setPhase] = useState("scan");
 
   useEffect(() => {
-    const t1 = setTimeout(() => setPhase("reveal"), 900);
-    const t2 = setTimeout(() => setPhase("ready"), 2600);
+    const t1 = setTimeout(() => setPhase("analyze"), 1000);
+    const t2 = setTimeout(() => setPhase("ready"), 2300);
+
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
@@ -13,98 +20,321 @@ export default function MalkhaniLoading() {
   }, []);
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#0E0C09] text-[#EDE3D0] overflow-hidden relative">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#070A0D] text-white overflow-hidden relative">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Cinzel:wght@500;600&display=swap');
-
-        .mk-display { font-family: 'Cinzel', serif; }
-        .mk-body { font-family: 'Cormorant Garamond', serif; }
-
-        .mk-monogram-path {
-          stroke-dasharray: 340;
-          stroke-dashoffset: 340;
-          animation: mkDraw 1.4s cubic-bezier(0.65,0,0.35,1) forwards;
-        }
-        @keyframes mkDraw {
-          to { stroke-dashoffset: 0; }
-        }
-        @keyframes mkFadeUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .mk-fade-1 { animation: mkFadeUp 0.9s ease forwards; animation-delay: 0.9s; opacity: 0; }
-        .mk-fade-2 { animation: mkFadeUp 0.9s ease forwards; animation-delay: 1.25s; opacity: 0; }
-        .mk-fade-3 { animation: mkFadeUp 0.9s ease forwards; animation-delay: 1.55s; opacity: 0; }
-        .mk-fade-4 { animation: mkFadeUp 0.9s ease forwards; animation-delay: 1.85s; opacity: 0; }
-
-        .mk-shimmer::after {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(90deg, transparent, rgba(237,227,208,0.5), transparent);
-          transform: translateX(-100%);
-          animation: mkShimmer 2.2s ease-in-out infinite;
-        }
-        @keyframes mkShimmer {
-          100% { transform: translateX(220%); }
+        @keyframes scan {
+          0% {
+            transform: translateY(-55px);
+            opacity: 0;
+          }
+          20% {
+            opacity: 1;
+          }
+          80% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(55px);
+            opacity: 0;
+          }
         }
 
-        @keyframes mkGlow {
-          0%, 100% { opacity: 0.35; }
-          50% { opacity: 0.7; }
+        @keyframes pulseRing {
+          0%, 100% {
+            transform: scale(0.92);
+            opacity: 0.35;
+          }
+          50% {
+            transform: scale(1.05);
+            opacity: 0.8;
+          }
         }
-        .mk-glow { animation: mkGlow 3.5s ease-in-out infinite; }
+
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-8px);
+          }
+        }
+
+        @keyframes rotateSlow {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+        @keyframes fadeUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes progress {
+          from {
+            width: 0%;
+          }
+          to {
+            width: 100%;
+          }
+        }
+
+        @keyframes dotPulse {
+          0%, 100% {
+            opacity: 0.25;
+            transform: scale(0.8);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .science-float {
+          animation: float 3s ease-in-out infinite;
+        }
+
+        .science-ring {
+          animation: pulseRing 3s ease-in-out infinite;
+        }
+
+        .science-rotate {
+          animation: rotateSlow 18s linear infinite;
+        }
+
+        .science-fade {
+          animation: fadeUp 0.7s ease forwards;
+        }
+
+        .science-progress {
+          animation: progress 2.3s cubic-bezier(.65,0,.35,1) forwards;
+        }
+
+        .science-dot-1 {
+          animation: dotPulse 1.2s ease-in-out infinite;
+        }
+
+        .science-dot-2 {
+          animation: dotPulse 1.2s ease-in-out infinite 0.2s;
+        }
+
+        .science-dot-3 {
+          animation: dotPulse 1.2s ease-in-out infinite 0.4s;
+        }
+
+        .science-scan {
+          animation: scan 1.8s ease-in-out infinite;
+        }
 
         @media (prefers-reduced-motion: reduce) {
-          *, *::before, *::after { animation-duration: 0.001ms !important; }
+          *,
+          *::before,
+          *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+          }
         }
       `}</style>
 
-      {/* faint radial glow behind monogram */}
+      {/* Background glow */}
       <div
-        className="mk-glow absolute w-[420px] h-[420px] rounded-full pointer-events-none"
-        style={{ background: "radial-gradient(circle, rgba(198,166,100,0.18) 0%, transparent 70%)" }}
+        className="
+          absolute
+          w-[500px]
+          h-[500px]
+          rounded-full
+          pointer-events-none
+          blur-3xl
+          opacity-40
+        "
+        style={{
+          background:
+            "radial-gradient(circle, rgba(212,175,55,0.12) 0%, transparent 68%)",
+        }}
       />
 
-      {/* corner rule marks, quiet frame */}
-      <div className="absolute top-8 left-8 w-8 h-8 border-t border-l border-[#C6A664]/30" />
-      <div className="absolute top-8 right-8 w-8 h-8 border-t border-r border-[#C6A664]/30" />
-      <div className="absolute bottom-8 left-8 w-8 h-8 border-b border-l border-[#C6A664]/30" />
-      <div className="absolute bottom-8 right-8 w-8 h-8 border-b border-r border-[#C6A664]/30" />
+      {/* Subtle scientific grid */}
+      <div
+        className="absolute inset-0 opacity-[0.035] pointer-events-none"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)
+          `,
+          backgroundSize: "42px 42px",
+        }}
+      />
 
-      <div className="relative flex flex-col items-center gap-7 px-6">
-        {/* signature: hand-drawn monogram M */}
-        <svg width="88" height="88" viewBox="0 0 100 100" fill="none">
-          <circle cx="50" cy="50" r="46" stroke="#C6A664" strokeOpacity="0.25" strokeWidth="1" />
-          <path
-            className="mk-monogram-path"
-            d="M28 68V32L50 58L72 32V68"
-            stroke="#C6A664"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+      {/* Corner marks */}
+      <div className="absolute top-7 left-7 w-8 h-8 border-t border-l border-[#D4AF37]/25" />
+      <div className="absolute top-7 right-7 w-8 h-8 border-t border-r border-[#D4AF37]/25" />
+      <div className="absolute bottom-7 left-7 w-8 h-8 border-b border-l border-[#D4AF37]/25" />
+      <div className="absolute bottom-7 right-7 w-8 h-8 border-b border-r border-[#D4AF37]/25" />
+
+      <div className="relative flex flex-col items-center px-6">
+        {/* Scientific icon */}
+        <div className="relative w-32 h-32 flex items-center justify-center">
+          {/* Outer rotating ring */}
+          <div
+            className="
+              science-rotate
+              absolute
+              inset-1
+              rounded-full
+              border
+              border-dashed
+              border-[#D4AF37]/20
+            "
           />
-        </svg>
 
-        <div className="flex flex-col items-center gap-2">
-          <p className="mk-fade-1 mk-display text-[11px] tracking-[0.45em] text-[#C6A664] uppercase">
-            Welcome to
+          {/* Inner pulsing ring */}
+          <div
+            className="
+              science-ring
+              absolute
+              inset-5
+              rounded-full
+              border
+              border-[#D4AF37]/30
+            "
+          />
+
+          {/* Icon background */}
+          <div
+            className="
+              science-float
+              relative
+              w-20
+              h-20
+              rounded-2xl
+              bg-[#11161B]
+              border
+              border-[#D4AF37]/30
+              flex
+              items-center
+              justify-center
+              shadow-[0_0_45px_rgba(212,175,55,0.08)]
+            "
+          >
+            <FlaskConical
+              className="w-9 h-9 text-[#D4AF37]"
+              strokeWidth={1.5}
+            />
+
+            {/* Scanning line */}
+            <div
+              className="
+                science-scan
+                absolute
+                left-2
+                right-2
+                h-px
+                bg-gradient-to-r
+                from-transparent
+                via-[#D4AF37]
+                to-transparent
+                opacity-80
+              "
+            />
+          </div>
+
+          {/* Small orbit icons */}
+          <div className="absolute -top-1 left-7 text-[#D4AF37]/50">
+            <Atom className="w-4 h-4" />
+          </div>
+
+          <div className="absolute -bottom-1 right-6 text-[#D4AF37]/40">
+            <Microscope className="w-4 h-4" />
+          </div>
+        </div>
+
+        {/* Brand */}
+        <div className="science-fade flex flex-col items-center mt-8">
+          <p
+            className="
+              text-[11px]
+              font-bold
+              uppercase
+              tracking-[0.45em]
+              text-[#D4AF37]
+            "
+          >
+            Scientific Equipment
           </p>
-          <h1 className="mk-fade-2 mk-display text-[34px] sm:text-[42px] tracking-[0.12em] text-[#EDE3D0] leading-none">
-            MALKHANI
+
+          <h1
+            className="
+              text-3xl
+              sm:text-4xl
+              font-black
+              tracking-tight
+              text-white
+              mt-3
+            "
+          >
+            SciSupply
           </h1>
-          <p className="mk-fade-3 mk-body text-[13px] tracking-[0.35em] text-[#EDE3D0]/50 uppercase mt-1">
-            Est. Fine Living &nbsp;·&nbsp; Store
+
+          <p className="text-xs text-white/35 mt-2 tracking-[0.22em] uppercase">
+            Laboratory essentials
           </p>
         </div>
 
-        <div className="mk-fade-4 flex flex-col items-center gap-3 mt-1">
-          <div className="w-10 h-px bg-[#C6A664]/40" />
-          <p className="mk-body text-[13px] tracking-[0.3em] text-[#EDE3D0]/50 uppercase">
-            {phase === "ready" ? "Welcome, please come in" : "So glad you're here"}
-          </p>
+        {/* Status */}
+        <div className="mt-9 flex flex-col items-center">
+          <div className="flex items-center gap-2">
+            {phase === "ready" ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+
+                <span className="text-xs text-emerald-300 font-medium">
+                  Ready
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="flex items-center gap-1.5">
+                  <span className="science-dot-1 w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+                  <span className="science-dot-2 w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+                  <span className="science-dot-3 w-1.5 h-1.5 rounded-full bg-[#D4AF37]" />
+                </span>
+
+                <span className="text-xs text-white/45">
+                  {phase === "scan"
+                    ? "Preparing laboratory"
+                    : "Loading equipment"}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Progress */}
+          <div className="w-48 sm:w-56 h-px bg-white/8 mt-4 overflow-hidden">
+            <div
+              className="
+                science-progress
+                h-full
+                bg-[#D4AF37]
+              "
+            />
+          </div>
         </div>
+
+        {/* Bottom tagline */}
+        <p className="text-[10px] text-white/20 tracking-[0.28em] uppercase mt-8">
+          Research · Education · Laboratory
+        </p>
       </div>
     </div>
   );
 }
+
